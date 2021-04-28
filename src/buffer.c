@@ -160,6 +160,12 @@ void add_line_buffer(struct session *ses, char *line, int prompt)
 
 	push_call("add_line_buffer(%p,%s,%d)",ses,line,prompt);
 
+	if (HAS_BIT(ses->flags, SES_FLAG_SNOOPSCROLL))
+	{
+		SET_BIT(gtd->flags, TINTIN_FLAG_SESSIONUPDATE);
+		SET_BIT(ses->flags, SES_FLAG_PRINTLINE);
+	}
+
 	if (gtd->level->scroll)
 	{
 		pop_call();
@@ -438,7 +444,7 @@ int show_buffer(struct session *ses)
 {
 	int scroll_size, scroll_cnt, scroll_tmp, scroll_add, scroll_cut, start, end, row;
 
-	if (ses != gtd->ses)
+	if (ses != gtd->ses && !HAS_BIT(ses->flags, SES_FLAG_SNOOPSCROLL))
 	{
 		return TRUE;
 	}
@@ -830,7 +836,10 @@ DO_BUFFER(buffer_lock)
 
 	if (!strcasecmp(arg1, "ON"))
 	{
-		ses->scroll->line = ses->scroll->used + 1;
+		if (ses->scroll->line == -1)
+		{
+			ses->scroll->line = ses->scroll->used - 1;
+		}
 	}
 	else if (!strcasecmp(arg1, "OFF"))
 	{
@@ -840,7 +849,7 @@ DO_BUFFER(buffer_lock)
 	{
 		if (ses->scroll->line == -1)
 		{
-			ses->scroll->line = ses->scroll->used + 1;
+			ses->scroll->line = ses->scroll->used - 1;
 		}
 		else
 		{

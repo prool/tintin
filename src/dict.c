@@ -29,8 +29,8 @@
 
 struct dictionary_data
 {
-	unsigned int  * wordindex[26];
-	int             listsize[26];
+	unsigned int * wordindex[26];
+	unsigned int   listsize[26];
 };
 
 struct dictionary_data *dictionary;
@@ -83,64 +83,35 @@ void dictionary_init()
 		}
 		while (*pta);
 	}
-
-//	for (hash = 0 ; hash < 26 ; hash++)
-//	{
-//		printf("hash %2d = %d\n", hash, dictionary->listsize[hash]);
-//	}
+/*
+	for (hash = 0 ; hash < 26 ; hash++)
+	{
+		printf("hash %c = %d\n", 'A' + hash, dictionary->listsize[hash]);
+	}
+*/
 }
 
 int dictionary_search(int hash, char *key)
 {
-	register int mid, i, bot;
-	register char val;
+	unsigned int bot, mid, top;
 
 	bot = 0;
-	i = dictionary->listsize[hash] - 1;
-	mid = i / 2;
+	top = dictionary->listsize[hash];
 
-	while (mid)
+	while (top > 1)
 	{
-		val = strcmp(key, wordlist[hash] + dictionary->wordindex[hash][i - mid]);
+		mid = top / 2;
 
-//		printf("debug: %5d '%c' %s\n", i - mid, 'a' + hash, wordlist[hash] + dictionary->wordindex[hash][i - mid]);
-
-		if (val < 0)
+		if (strcmp(key, wordlist[hash] + dictionary->wordindex[hash][bot + mid]) >= 0)
 		{
-			i -= mid + 1;
+			bot += mid;
 		}
-		else if (val > 0)
-		{
-			bot = i - mid + 1;
-		}
-		else
-		{
-			return i - mid;
-		}
-		mid = (i - bot) / 2;
+		top -= mid;
 	}
 
-	if (i > bot)
+	if (!strcmp(key, wordlist[hash] + dictionary->wordindex[hash][bot]))
 	{
-		val = strcmp(key, wordlist[hash] + dictionary->wordindex[hash][i]);
-
-		if (val > 0)
-		{
-			return -1;
-		}
-		else if (val < 0)
-		{
-			--i;
-		}
-		else
-		{
-			return i;
-		}
-	}
-
-	if (!strcmp(key, wordlist[hash] + dictionary->wordindex[hash][i]))
-	{
-		return i;
+		return bot;
 	}
 	return -1;
 }
@@ -219,6 +190,8 @@ DO_COMMAND(do_dictionary)
 	if (*arg1 == 0 || !is_alpha(*arg1))
 	{
 		show_message(ses, LIST_COMMAND, "#SYNTAX: #DICTIONARY {WORD}");
+
+		wordlist[0][0] = 0;
 
 		return ses;
 	}

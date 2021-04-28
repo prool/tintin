@@ -1,10 +1,27 @@
-* BUGS
+  - look into large variable handling, foreach, once again
 
-  - Look into escaped color codes in zmp, possibly msdp
+  - tab window, add tab ordering and garbage collection
 
-  - See about making @$var{} work.
+----------------
+  - ãã is messing up
 
-  - See about turning window close into a program termination event.
+  - Add RECEIVED INPUT CHARACTER event / filter mouse input sequences.
+
+  - handle signals in the mainloop.
+
+  - add ctrl-r support for scrollback
+
+  - Add #event {SESSION CONNECTED} {5.1} option.
+
+  - Add the option to use + ? . and * as variable exit fields. 
+
+  - TT++ HANDBOOK for meticulous organized details.
+
+  - vertical bar drawing
+
+  - error: cursor_check_line_modified1: 
+  - https://tintin.sourceforge.io/forum/viewtopic.php?f=10&t=2811 (possible
+    issue with initiating input buffer for a new session)
 
   - finish BUFFER_SIZE replacement.
 
@@ -12,16 +29,7 @@
 
   - update msdp scripts with #line msdp feature
 
-  - refresh input on session switch
-
-  - swap arg1, arg2, arg for do_port
-
-  - https://tintin.sourceforge.io/forum/viewtopic.php?f=5&t=2776
-    Need special casing for non capturing {?!} regex handling.
-
   - #cursor get word option, maybe get the yank buffer as well.
-
-  - Look into config option to change the working directory
 
   - Add a way to set env variables either 1) for the current process, and/or 2) as a parameter to #system (i.e. after fork in the child process).
 
@@ -31,11 +39,6 @@
 
   - look into transparent drawing
 
-  - if error pcre.h, need export C_INCLUDE_PATH= where it locate
-
-  - The #else command could follow a #foreach so as to create "for-else" loops
-    in case a loop is not broken.
-
   - Add #line gag 2 +2 -2 support.
 
   - Work on VT2020 protocol (mouse click)
@@ -43,13 +46,15 @@
   - $var[%*][%*] support.
   - make list sorting move nests as well
 
-  - #line convert utf-8 support.
-
   - better #draw font support
 
   - case insensitive tabbing (partial start with rewrite)
   - tabbing on directory structure.
   - tabbing on dictionary
+
+#0  0x00005555555a5418 in tunnel_void (ses=0x555558a97b00, from=8004, room=1931506785, dir=1684955508) at mapper.c:4220
+#1  0x00005555555a599d in searchgrid_find (ses=0x555558a97b00, from=153, search=0x555558d8f850) at mapper.c:4336
+#2  0x00005555555afb44 in map_list (ses=0x555558a97b00, arg=0x5555572e1b95 "{} {} {} {$roomarea} {variable} {area_mapped}",
 
   - #map list {<exits>} breaks on rooms that have e mapped to eu.
   - finish landmarks
@@ -71,6 +76,7 @@
   - more data to #map list saving, and maybe easier sorting of tables.
   - event for failed #map move.
   - look into #send triggering follow map.
+  - add {roomdata} search to #map list
 
   - truncate prompt longer than split.
 
@@ -109,20 +115,13 @@
 
   - add packets patched counter
 
-  - Fix arrow key up history recall overwriting the prompt (partial redesign)
-    Auto prompt fixing on overwrite.
-
   - reportable_sounds
-
-  - https://tintin.sourceforge.io/forum/viewtopic.php?f=4&t=2597 #add #screen support
 
   - TELNET documentation.
 
   - Add JSON support to #scan
 
   - see if #break 2 is possible, maybe #continue 2 as well.
-
-  - http://tintin.sourceforge.net/board/viewtopic.php?p=9625 (map undo issue) (not a big issue)
 
   - http://tintin.sourceforge.net/board/viewtopic.php?t=2339 (map area data)
 
@@ -149,6 +148,10 @@
   - add color based auto unwrap routine.
 
   - Start of line anchors aren't working in #replace.
+
+  - add #history filter option to filter out 1 letter commands.
+
+  - Look into config option to change the working directory
 
 --------------------------------------------------------------------------------
 

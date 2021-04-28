@@ -132,8 +132,12 @@
 #define SORT_PRIORITY                    0
 #define SORT_ALPHA                       1
 #define SORT_ALNUM                       2
-#define SORT_APPEND                      3
-#define SORT_DELAY                       4
+#define SORT_STABLE                      3
+#define SORT_APPEND                      4
+
+#define SEEK_MATCH                       0
+#define SEEK_REPLACE                     1
+#define SEEK_APPEND                      2
 
 #define DEFAULT_OPEN                   '{'
 #define DEFAULT_CLOSE                  '}'
@@ -203,7 +207,7 @@
 #define STRING_SIZE        2 * BUFFER_SIZE
 
 #define CLIENT_NAME              "TinTin++"
-#define CLIENT_VERSION           "2.02.05 "
+#define CLIENT_VERSION           "2.02.11 "
 
 
 #define XT_E                            0x27
@@ -376,6 +380,7 @@ enum operators
 #define BV38 (1LL << 37)
 #define BV39 (1LL << 38)
 #define BV40 (1LL << 39)
+#define BV41 (1LL << 40)
 
 
 #define BUFFER_FLAG_GREP                  BV01
@@ -393,17 +398,19 @@ enum operators
 #define CHARSET_FLAG_UTF8                 BV01
 #define CHARSET_FLAG_BIG5                 BV02
 #define CHARSET_FLAG_GBK1                 BV03
+#define CHARSET_FLAG_CP949                BV04
 
-#define CHARSET_FLAG_BIG5TOUTF8           BV04
-#define CHARSET_FLAG_FANSITOUTF8          BV05
-#define CHARSET_FLAG_GBK1TOUTF8           BV06
-#define CHARSET_FLAG_ISO1TOUTF8           BV07
-#define CHARSET_FLAG_ISO2TOUTF8           BV08
-#define CHARSET_FLAG_KOI8TOUTF8           BV09
-#define CHARSET_FLAG_CP1251TOUTF8         BV10
+#define CHARSET_FLAG_BIG5TOUTF8           BV05
+#define CHARSET_FLAG_FANSITOUTF8          BV06
+#define CHARSET_FLAG_GBK1TOUTF8           BV07
+#define CHARSET_FLAG_ISO1TOUTF8           BV08
+#define CHARSET_FLAG_ISO2TOUTF8           BV09
+#define CHARSET_FLAG_KOI8TOUTF8           BV10
+#define CHARSET_FLAG_CP1251TOUTF8         BV11
+#define CHARSET_FLAG_CP949TOUTF8          BV12
 
-#define CHARSET_FLAG_EUC                  CHARSET_FLAG_BIG5|CHARSET_FLAG_GBK1
-#define CHARSET_FLAG_ALL_TOUTF8           CHARSET_FLAG_BIG5TOUTF8|CHARSET_FLAG_CP1251TOUTF8|CHARSET_FLAG_FANSITOUTF8|CHARSET_FLAG_GBK1TOUTF8|CHARSET_FLAG_ISO1TOUTF8|CHARSET_FLAG_ISO2TOUTF8|CHARSET_FLAG_KOI8TOUTF8
+#define CHARSET_FLAG_EUC                  CHARSET_FLAG_BIG5|CHARSET_FLAG_GBK1|CHARSET_FLAG_CP949
+#define CHARSET_FLAG_ALL_TOUTF8           CHARSET_FLAG_BIG5TOUTF8|CHARSET_FLAG_CP1251TOUTF8|CHARSET_FLAG_FANSITOUTF8|CHARSET_FLAG_GBK1TOUTF8|CHARSET_FLAG_ISO1TOUTF8|CHARSET_FLAG_ISO2TOUTF8|CHARSET_FLAG_KOI8TOUTF8|CHARSET_FLAG_CP949TOUTF8
 #define CHARSET_FLAG_ALL                  CHARSET_FLAG_UTF8|CHARSET_FLAG_ALL_TOUTF8|CHARSET_FLAG_EUC
 
 
@@ -602,7 +609,7 @@ enum operators
 #define TINTIN_FLAG_HIDDENCURSOR      BV11
 #define TINTIN_FLAG_LOCAL             BV12
 #define TINTIN_FLAG_PRESERVEMACRO     BV13
-
+#define TINTIN_FLAG_WINCHUPDATE       BV14
 
 #define CONFIG_FLAG_AUTOPATCH         BV01
 #define CONFIG_FLAG_AUTOPROMPT        BV02
@@ -635,8 +642,9 @@ enum operators
 #define SES_FLAG_SCANABORT            BV10
 #define SES_FLAG_SCROLLSPLIT          BV11
 #define SES_FLAG_SNOOP                BV12
-#define SES_FLAG_SPLIT                BV13
-#define SES_FLAG_UPDATEVTMAP          BV14
+#define SES_FLAG_SNOOPSCROLL          BV13
+#define SES_FLAG_SPLIT                BV14
+#define SES_FLAG_UPDATEVTMAP          BV15
 
 
 #define TELOPT_FLAG_TELNET            BV01
@@ -1282,7 +1290,6 @@ struct split_data
 	int                     bot_col;
 };
 
-
 struct scroll_data
 {
 	struct buffer_data   ** buffer;
@@ -1468,6 +1475,8 @@ struct exit_data
 struct search_data
 {
 	int                     vnum;
+	int                     min;
+	int                     max;
 	unsigned short          stamp;
 	char                  * arg;
 	pcre                  * name;
@@ -1595,7 +1604,7 @@ struct window_data
 #define DO_LOG(log)                        void log (struct session *ses, char *arg, char *arg1, char *arg2)
 #define DO_MAP(map)                        void map (struct session *ses, char *arg, char *arg1, char *arg2)
 #define DO_PATH(path)                     void path (struct session *ses, char *arg)
-#define DO_PORT(port)          struct session *port (struct session *ses, char *arg1, char *arg2, char *arg)
+#define DO_PORT(port)          struct session *port (struct session *ses, char *arg, char *arg1, char *arg2)
 
 
 /*
@@ -1617,7 +1626,7 @@ typedef struct session *LINE    (struct session *ses, char *arg, char *arg1, cha
 typedef void            MAP     (struct session *ses, char *arg, char *arg1, char *arg2);
 typedef void            MSDP    (struct session *ses, struct port_data *buddy, int index);
 typedef void            PATH    (struct session *ses, char *arg);
-typedef struct session *PORT    (struct session *ses, char *arg1, char *arg2, char *arg);
+typedef struct session *PORT    (struct session *ses, char *arg, char *arg1, char *arg2);
 
 
 /*
@@ -1629,6 +1638,13 @@ struct buffer_type
 	char                  * name;
 	BUFFER                * fun;
 	char                  * desc;
+};
+
+struct charset_type
+{
+	char                  * name;
+	char                  * html;
+	int                     flags;
 };
 
 struct chat_type
@@ -1950,6 +1966,9 @@ extern DO_COMMAND(do_cursor);
 
 int inputline_cur_row(void);
 int inputline_cur_col(void);
+int inputline_cur_off(void);
+int inputline_cur_str_len(void);
+int inputline_max_str_len(void);
 int inputline_max_row(void);
 int inputline_editor(void);
 int inputline_rows(struct session *ses);
@@ -2096,23 +2115,16 @@ extern DO_MAP(map_write);
 #ifndef __TT_MATH_H__
 #define __TT_MATH_H__
 
+extern long double mathexp(struct session *ses, char *str, char *result, int seed);
 extern int is_math(struct session *ses, char *str);
-extern int get_ellipsis(struct listroot *root, char *name, int *min, int *max);
+extern int get_ellipsis(struct session *ses, unsigned int size, char *name, int *min, int *max);
 extern long double get_number(struct session *ses, char *str);
 extern unsigned long long get_ulong(struct session *ses, char *str);
 extern long double get_double(struct session *ses, char *str);
 extern void get_number_string(struct session *ses, char *str, char *result);
 extern long double mathswitch(struct session *ses, char *left, char *right);
-extern void mathexp(struct session *ses, char *str, char *result, int seed);
-extern int mathexp_tokenize(struct session *ses, char *str, int seed, int debug);
-extern void mathexp_level(struct session *ses, struct link_data *node);
-extern void mathexp_compute(struct session *ses, struct link_data *node);
-extern long double tinternary(char *arg1, char *arg2);
 extern long double tintoi(char *str);
 extern unsigned long long tintou(char *str);
-extern long double tincmp(char *left, char *right);
-extern long double tineval(struct session *ses, char *left, char *right);
-extern long double tindice(struct session *ses, char *left, char *right);
 
 
 #endif
@@ -2683,7 +2695,6 @@ extern DO_COMMAND(do_snoop);
 extern DO_COMMAND(do_zap);
 
 extern struct session *session_command(char *arg, struct session *ses);
-extern void show_session(struct session *ses, struct session *ptr);
 extern struct session *find_session(char *name);
 extern struct session *newactive_session(void);
 extern struct session *activate_session(struct session *ses);
@@ -2782,6 +2793,7 @@ extern  int valid_escape(struct session *ses, char *arg);
 extern char *fuzzy_color_code(struct session *ses, char *pti);
 extern char *dim_color_code(struct session *ses, char *pti, int mod);
 extern char *lit_color_code(struct session *ses, char *pti, int mod);
+extern int color_gradient(char *pti, int low, int max);
 extern int is_color_code(char *str);
 extern int is_color_name(char *str);
 extern int substitute_color(char *input, char *output, int colors);
@@ -2800,6 +2812,7 @@ extern DO_COMMAND(do_suspend);
 #define __TABLES_H__
 
 extern struct buffer_type buffer_table[];
+extern struct charset_type charset_table[];
 extern struct chat_type chat_table[];
 extern   char character_table[];
 extern struct color_type color_table[];
@@ -2807,7 +2820,6 @@ extern struct color_type map_color_table[];
 extern struct config_type config_table[];
 extern struct cursor_type cursor_table[];
 extern struct daemon_type daemon_table[];
-//extern struct draw_type draw_table[];
 extern struct edit_type edit_table[];
 extern struct event_type event_table[];
 extern struct history_type history_table[];
@@ -2818,13 +2830,11 @@ extern struct map_type map_table[];
 extern struct path_type path_table[];
 extern struct port_type port_table[];
 extern struct rank_type rank_table[];
-//extern struct scan_type scan_table[];
 extern struct stamp_type huge_stamp_table[];
 extern struct substitution_type substitution_table[];
 extern struct telopt_type telopt_table[];
 extern   char *telcmds[];
 extern struct timer_type timer_table[];
-//extern struct screen_type screen_table[];
 extern struct map_legend_type map_legend_table[];
 extern struct map_legend_group_type map_legend_group_table[];
 
@@ -2942,7 +2952,10 @@ extern unsigned long long hex_number_64bit(char *str);
 extern unsigned int hex_number_32bit(char *str);
 extern int hex_number_8bit(char *str);
 extern int oct_number(char *str);
+extern int unicode_8_bit(char *str, char *out);
+extern int unicode_12_bit(char *str, char *out);
 extern int unicode_16_bit(char *str, char *out);
+extern int unicode_20_bit(char *str, char *out);
 extern int unicode_21_bit(char *str, char *out);
 extern unsigned long long utime(void);
 extern time_t get_time(struct session *ses, char *str);
@@ -2979,6 +2992,8 @@ extern int utf8_strlen(char *str, int *width);
 
 extern int utf8_to_all(struct session *ses, char *in, char *out);
 extern int all_to_utf8(struct session *ses, char *in, char *out);
+extern int cp1251_to_utf8(char *input, char *output);
+extern int utf8_to_cp1251(char *input, char *output);
 extern int iso1_to_utf8(char *input, char *output);
 extern int utf8_to_iso1(char *input, char *output);
 extern int iso2_to_utf8(char *input, char *output);
@@ -2995,9 +3010,9 @@ extern int utf8_to_big5(char *input, char *output);
 extern int is_gbk1(char *str);
 extern int gbk1_to_utf8(char *input, char *output);
 extern int utf8_to_gbk1(char *input, char *output);
-
-extern int cp1251_to_utf8(char *input, char *output);
-extern int utf8_to_cp1251(char *input, char *output);
+extern int is_cp949(char *str);
+extern int cp949_to_utf8(char *input, char *output);
+extern int utf8_to_cp949(char *input, char *output);
 
 #endif
 

@@ -228,6 +228,25 @@ int get_regex_range(char *in, char *out, int *var, int *arg)
 	pti = in;
 	ptr = range;
 
+	switch (*pti)
+	{
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+			*ptr++ = *pti++;
+			break;
+
+		default:
+			goto end;
+	}
+
 	while (*pti)
 	{
 		switch (*pti)
@@ -289,10 +308,10 @@ int get_regex_range(char *in, char *out, int *var, int *arg)
 				pto += sprintf(pto, "([\\x00-\\x7F\\xFF]");
 				break;
 			case 'w':
-				pto += sprintf(pto, "([a-zA-Z]");
+				pto += sprintf(pto, "([a-zA-Z0-9_]");
 				break;
 			case 'W':
-				pto += sprintf(pto, "([^a-zA-Z]");
+				pto += sprintf(pto, "([^a-zA-Z0-9_]");
 				break;
 
 			default:
@@ -1211,7 +1230,7 @@ void tintin_macro_compile(char *input, char *output)
 					case 'U':
 						if (pti[2] && pti[3] && pti[4] && pti[5] && pti[6] && pti[7])
 						{
-							pto += unicode_21_bit(&pti[2], pto);
+							pto += unicode_21_bit(pti + 2, pto);
 							pti += 8;
 						}
 						else

@@ -870,6 +870,171 @@ char *lit_color_code(struct session *ses, char *pti, int mod)
 	return "";
 }
 
+int color_gradient(char *pti, int min, int max)
+{
+	char buf[6];
+	int lvl, cap;
+
+	if (strlen(pti) < 10)
+	{
+		return 0;
+	}
+
+	if (pti[0] == '<' && pti[4] == '>' && pti[5] == '<' && pti[9] == '>')
+	{
+//		if (pti[1] >= 'A' && pti[1] <= 'F' && pti[2] >= 'A' && pti[2] <= 'F' && pti[3] >= 'A' && pti[3] <= 'F')
+		if (pti[1] >= 'a' && pti[1] <= 'f' && pti[2] >= 'a' && pti[2] <= 'f' && pti[3] >= 'a' && pti[3] <= 'f')
+		{
+			if (pti[6] >= 'a' && pti[6] <= 'f' && pti[7] >= 'a' && pti[7] <= 'f' && pti[8] >= 'a' && pti[8] <= 'f')
+			{
+				buf[1] = pti[1];
+				buf[2] = pti[2];
+				buf[3] = pti[3];
+
+				for (cap = lvl = 0 ; cap < 50 ; cap++)
+				{
+//					printf("cap %2d lvl %d <%c%c%c>\n",cap,lvl,buf[1],buf[2],buf[3]);
+
+					if (lvl == 0)
+					{
+						if (buf[1] > 'a' && buf[1] < 'f')
+						{
+							buf[1]++;
+							continue;
+						}
+						if (buf[2] > 'a' && buf[2] < 'f')
+						{
+							buf[2]++;
+							continue;
+						}
+						if (buf[3] > 'a' && buf[3] < 'f')
+						{
+							buf[3]++;
+							continue;
+						}
+						lvl++;
+					}
+
+					if (lvl == 1)
+					{
+						if (pti[6] > 'a' && buf[1] < 'f')
+						{
+							buf[1]++;
+							continue;
+						}
+						if (pti[7] > 'a' && buf[2] < 'f')
+						{
+							buf[2]++;
+							continue;
+						}
+						if (pti[8] > 'a' && buf[3] < 'f')
+						{
+							buf[3]++;
+							continue;
+						}
+						lvl++;
+					}
+					
+					if (buf[1] > 'a' && pti[6] < buf[1])
+					{
+						buf[1]--;
+						continue;
+					}
+
+					if (buf[2] > 'a' && pti[7] < buf[2])
+					{
+						buf[2]--;
+						continue;
+					}
+
+					if (buf[3] > 'a' && pti[8] < buf[3])
+					{
+						buf[3]--;
+						continue;
+					}
+					break;
+				}
+				cap = cap * min / max;
+
+				buf[1] = pti[1];
+				buf[2] = pti[2];
+				buf[3] = pti[3];
+
+				for (min = lvl = 0 ; min < cap ; min++)
+				{
+					if (lvl == 0)
+					{
+						if (buf[1] > 'a' && buf[1] < 'f')
+						{
+							buf[1]++;
+							continue;
+						}
+						if (buf[2] > 'a' && buf[2] < 'f')
+						{
+							buf[2]++;
+							continue;
+						}
+						if (buf[3] > 'a' && buf[3] < 'f')
+						{
+							buf[3]++;
+							continue;
+						}
+						lvl++;
+					}
+
+					if (lvl == 1)
+					{
+						if (pti[6] > 'a' && buf[1] < 'f')
+						{
+							buf[1]++;
+							continue;
+						}
+						if (pti[7] > 'a' && buf[2] < 'f')
+						{
+							buf[2]++;
+							continue;
+						}
+						if (pti[8] > 'a' && buf[3] < 'f')
+						{
+							buf[3]++;
+							continue;
+						}
+						lvl++;
+					}
+					
+					if (pti[6] < buf[1])
+					{
+						buf[1]--;
+						continue;
+					}
+					if (pti[7] < buf[2])
+					{
+						buf[2]--;
+						continue;
+					}
+					if (pti[8] < buf[3])
+					{
+						buf[3]--;
+						continue;
+					}
+					break;
+				}
+
+				pti[6] = buf[1];
+				pti[7] = buf[2];
+				pti[8] = buf[3];
+
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+// color gradient <faa><afa>
+// faa fba fca fda fea ffa efa dfa cfa bfa afa
+
+
 int substitute(struct session *ses, char *string, char *result, int flags)
 {
 	struct listnode *node;
@@ -950,11 +1115,18 @@ int substitute(struct session *ses, char *string, char *result, int flags)
 						i++;
 					}
 
-					for (ptt = temp ; is_alnum(pti[i]) || pti[i] == '_' ; i++)
+					if (pti[i] == DEFAULT_OPEN)
 					{
-						*ptt++ = pti[i];
+						i = sub_arg_in_braces(ses, &pti[i], temp, GET_ONE, flags_neol) - pti;
 					}
-					*ptt = 0;
+					else
+					{
+						for (ptt = temp ; is_alnum(pti[i]) || pti[i] == '_' ; i++)
+						{
+							*ptt++ = pti[i];
+						}
+						*ptt = 0;
+					}
 
 					if (pti[i] != DEFAULT_OPEN)
 					{
@@ -1819,25 +1991,49 @@ int substitute(struct session *ses, char *string, char *result, int flags)
 						case 'x':
 							if (pti[1] && pti[2])
 							{
-								if (pti[1] == '0' && pti[2] == '0' && pti[3] == 0)
-								{
-									pti += 2;
-									DEL_BIT(flags, SUB_EOL);
-									DEL_BIT(flags, SUB_LNF);
-								}
-								else
-								{
-									pti++;
-									*pto++ = hex_number_8bit(pti);
-									pti++;
-								}
+								*pto++ = hex_number_8bit(pti + 1);
+								pti += 2;
 							}
 							break;
 
 						case 'u':
-							if (pti[1] && pti[2] && pti[3] && pti[4])
+							if (pti[1] == '{')
 							{
-								pto += unicode_16_bit(&pti[1], pto);
+								if (pti[2] && pti[3] && pti[4])
+								{
+									if (pti[4] == '}')
+									{
+										pto += unicode_8_bit(pti + 2, pto);
+										pti += 4;
+									}
+									else if (pti[5] == '}')
+									{
+										pto += unicode_12_bit(pti + 2, pto);
+										pti += 5;
+									}
+									else if (pti[5] && pti[6])
+									{
+										if (pti[6] == '}')
+										{
+											pto += unicode_16_bit(pti + 2, pto);
+											pti += 6;
+										}
+										else if (pti[7] == '}')
+										{
+											pto += unicode_20_bit(pti + 2, pto);
+											pti += 7;
+										}
+										else if (pti[7] && pti[8] == '}')
+										{
+											pto += unicode_21_bit(pti + 2, pto);
+											pti += 8;
+										}
+									}
+								}
+							}
+							else if (pti[1] && pti[2] && pti[3] && pti[4])
+							{
+								pto += unicode_16_bit(pti + 1, pto);
 								pti += 4;
 							}
 							break;
@@ -1845,7 +2041,7 @@ int substitute(struct session *ses, char *string, char *result, int flags)
 						case 'U':
 							if (pti[1] && pti[2] && pti[3] && pti[4] && pti[5] && pti[6])
 							{
-								pto += unicode_21_bit(&pti[1], pto);
+								pto += unicode_21_bit(pti + 1, pto);
 								pti += 6;
 							}
 							break;
@@ -1857,14 +2053,14 @@ int substitute(struct session *ses, char *string, char *result, int flags)
 						case '0':
 							if (pti[1] == 0)
 							{
+								*pto++ = 0;
 								DEL_BIT(flags, SUB_EOL);
 								DEL_BIT(flags, SUB_LNF);
 							}
 							else if (pti[1] && pti[2])
 							{
-								pti++;
-								*pto++ = oct_number(pti);
-								pti++;
+								*pto++ = oct_number(pti + 1);
+								pti += 2;
 							}
 							break;
 
@@ -2151,6 +2347,8 @@ int is_color_name(char *string)
 	return TRUE;
 }
 
+// get any color, don't sub.
+
 int translate_color_names(struct session *ses, char *string, char *result)
 {
 	int cnt, skip;
@@ -2242,6 +2440,8 @@ int translate_color_names(struct session *ses, char *string, char *result)
 	}
 	return TRUE;
 }
+
+// get any color, sub
 
 int get_color_names(struct session *ses, char *string, char *result)
 {

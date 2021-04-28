@@ -3569,16 +3569,23 @@ void map_search_compile(struct session *ses, char *arg, char *var)
 
 	arg = sub_arg_in_braces(ses, tmp, buf, GET_ALL, SUB_VAR|SUB_FUN); // name
 
+	ses->map->search->min = ses->map->search->max = ses->map->search->vnum = 0;
+
 	if (is_math(ses, buf))
 	{
-		ses->map->search->vnum = (int) get_number(ses, buf);
-	}
-	else
-	{
-		ses->map->search->vnum = 0;
+		if (strstr(buf, ".."))
+		{
+			get_ellipsis(ses, ses->map->size, buf, &ses->map->search->min, &ses->map->search->max);
+			ses->map->search->min++;
+			ses->map->search->max++;
+		}
+		else
+		{
+			ses->map->search->vnum = (int) get_number(ses, buf);
+		}
 	}
 
-	if (ses->map->search->vnum)
+	if (ses->map->search->vnum || ses->map->search->min || ses->map->search->max)
 	{
 		pop_call();
 		return;
@@ -3711,7 +3718,9 @@ void map_search_compile(struct session *ses, char *arg, char *var)
 		ses->map->search->desc = NULL;
 	}
 
-	arg = sub_arg_in_braces(ses, arg, buf, GET_ALL, SUB_VAR|SUB_FUN); // area
+	arg = sub_arg_in_braces(ses, arg, buf, GET_ALL, SUB_VAR|SUB_FUN);
+
+	// area
 
 	if (ses->map->search->area)
 	{
@@ -3729,7 +3738,9 @@ void map_search_compile(struct session *ses, char *arg, char *var)
 		ses->map->search->area = NULL;
 	}
 
-	arg = sub_arg_in_braces(ses, arg, buf, GET_ALL, SUB_VAR|SUB_FUN); // note
+	// note
+
+	arg = sub_arg_in_braces(ses, arg, buf, GET_ALL, SUB_VAR|SUB_FUN);
 
 	if (ses->map->search->note)
 	{
@@ -3747,7 +3758,9 @@ void map_search_compile(struct session *ses, char *arg, char *var)
 		ses->map->search->note = NULL;
 	}
 
-	arg = sub_arg_in_braces(ses, arg, buf, GET_ALL, SUB_VAR|SUB_FUN); // terrain
+	// terrain
+
+	arg = sub_arg_in_braces(ses, arg, buf, GET_ALL, SUB_VAR|SUB_FUN);
 
 	if (ses->map->search->terrain)
 	{
@@ -3851,6 +3864,11 @@ int match_room(struct session *ses, int vnum, struct search_data *search)
 	if (search->vnum)
 	{
 		return room->vnum == search->vnum;
+	}
+
+	if (search->min || search->max)
+	{
+		return room->vnum >= search->min && room->vnum <= search->max;
 	}
 
 	if (search->id)
@@ -3989,7 +4007,9 @@ int find_location(struct session *ses, char *arg)
 		return find_exit(ses, ses->map->in_room, arg)->vnum;
 	}
 
-	if (is_math(ses, arg))
+	sub_arg_in_braces(ses, arg, arg1, GET_ONE, SUB_VAR|SUB_FUN);
+
+	if (is_math(ses, arg1))
 	{
 		arg = sub_arg_in_braces(ses, arg, arg1, GET_ONE, SUB_VAR|SUB_FUN);
 		arg = sub_arg_in_braces(ses, arg, arg2, GET_ONE, SUB_VAR|SUB_FUN);
@@ -4217,8 +4237,11 @@ int check_global(struct session *ses, int room)
 
 int tunnel_void(struct session *ses, int from, int room, int dir)
 {
+	push_call("tunnel_void(%p,%d,%d,%d)",ses,from,room,dir);
+
 	if (!HAS_BIT(ses->map->room_list[room]->flags, ROOM_FLAG_VOID))
 	{
+		pop_call();
 		return room;
 	}
 
@@ -4228,19 +4251,28 @@ int tunnel_void(struct session *ses, int from, int room, int dir)
 
 		if (exit)
 		{
+			pop_call();
 			return tunnel_void(ses, room, exit->vnum, exit->dir);
 		}
+		pop_call();
 		return room;
 	}
 
 	if (ses->map->room_list[room]->f_exit->vnum != from)
 	{
+		pop_call();
 		return tunnel_void(ses, room, ses->map->room_list[room]->f_exit->vnum, ses->map->room_list[room]->f_exit->dir);
 	}
-	else
+
+	if (ses->map->room_list[room]->l_exit->vnum != from)
 	{
+		pop_call();
 		return tunnel_void(ses, room, ses->map->room_list[room]->l_exit->vnum, ses->map->room_list[room]->l_exit->dir);
 	}
+	show_error(ses, LIST_COMMAND, "\e[1;31mtunnel_void(%p,%d,%d,%d) NO VALID EXITS FOUND.",ses,from,room,dir);
+
+	pop_call();
+	return room;
 }
 
 // shortest_path() utilities
@@ -4551,8 +4583,6 @@ void shortest_path(struct session *ses, int run, char *delay, char *arg)
 
 	kill_list(ses->list[LIST_PATH]);
 
-	ses->list[LIST_PATH]->update = 0;
-
 	map_search_compile(ses, arg, var);
 
 	dest = searchgrid_find(ses, ses->map->in_room, ses->map->search);
@@ -4804,8 +4834,6 @@ void explore_path(struct session *ses, int run, char *arg1, char *arg2)
 
 	kill_list(ses->list[LIST_PATH]);
 
-	ses->list[LIST_PATH]->update = 0;
-
 	room = ses->map->in_room;
 
 	exit = find_exit(ses, room, arg1);
@@ -4944,8 +4972,6 @@ void map_mouse_handler(struct session *ses, char *arg1, char *arg2, int row, int
 				  "w", "RL", "RC", "RR",  "e", "e",
 				 "sw",  "d",  "s", "16", "se", "18" };
 
-//		tintin_printf2(ses, "\e[1;32mdebug: y=%d x=%d mod(y)=%d mod(x)=%d", y / 3, y / 6, y % 3, x % 6);
-
 		strcpy(exit, grid[URANGE(0, y % 3 * 6 + x % 6, 17)]);
 
 		y /= 3;
@@ -4983,8 +5009,6 @@ void map_mouse_handler(struct session *ses, char *arg1, char *arg2, int row, int
 				y--;
 				break;
 		}
-
-//		tintin_printf2(ses, "\e[1;32mdebug: y=%d x=%d y_mod=%d x_mod=%d y+x=%d y=%d x=%d", y, x, y_mod, x_mod, 5*y_mod+x_mod, y, x);
 
 		max_y = 2 + (rows + 2) / 2;
 		max_x = 2 + (cols + 4) / 5;
@@ -5028,7 +5052,7 @@ void map_mouse_handler(struct session *ses, char *arg1, char *arg2, int row, int
 
 	if (arg1 && arg2)
 	{
-		check_all_events(ses, EVENT_FLAG_MAP, 2, 6, "MAP REGION %s %s", arg1, arg2, ntos(row), ntos(col), ntos(rev_row), ntos(rev_col), ntos(vnum), exit);
+		check_all_events(ses, EVENT_FLAG_MOUSE, 2, 6, "MAP REGION %s %s", arg1, arg2, ntos(row), ntos(col), ntos(rev_row), ntos(rev_col), ntos(vnum), exit);
 	}
 
 	if (vnum)
@@ -5078,6 +5102,13 @@ DO_MAP(map_at)
 	arg = sub_arg_in_braces(ses, arg, arg1, GET_ONE, SUB_VAR|SUB_FUN);
 	arg = sub_arg_in_braces(ses, arg, arg2, GET_ALL, SUB_NONE);
 
+	if (ses->map->at_room)
+	{
+		show_error(ses, LIST_COMMAND, "#MAP AT: Nested #map at call from room {%d}.", ses->map->in_room);
+
+		return;
+	}
+
 	new_room = find_room(ses, arg1);
 
 	ses->map->at_room = ses->map->in_room;
@@ -5092,6 +5123,8 @@ DO_MAP(map_at)
 		if (new_room == 0)
 		{
 			show_message(ses, LIST_COMMAND, "#MAP AT: Couldn't find room or exit {%s}.", arg1);
+
+			ses->map->at_room = 0;
 
 			return;
 		}
@@ -6211,6 +6244,7 @@ DO_MAP(map_info)
 		{
 			tintin_printf2(ses, "    color: %s", str_convert_meta(exit->color, TRUE));
 			tintin_printf2(ses, "  command: %s", exit->cmd);
+			tintin_printf2(ses, "    delay: %.3f", exit->delay);
 			tintin_printf2(ses, "direction: %d", exit->dir);
 			tintin_printf2(ses, "    flags: %d", exit->flags);
 			tintin_printf2(ses, "  get/set: %s", exit->data);
@@ -6218,7 +6252,6 @@ DO_MAP(map_info)
 			tintin_printf2(ses, "     name: %s", exit->name);
 			tintin_printf2(ses, "     vnum: %d", exit->vnum);
 			tintin_printf2(ses, "   weight: %.3f", exit->weight);
-			tintin_printf2(ses, "    delay: %.3f", exit->delay);
 
 			return;
 		}
@@ -6366,20 +6399,20 @@ DO_MAP(map_insert)
 
 	if (exit == NULL)
 	{
-		show_error(ses, LIST_COMMAND, "#MAP: There is no room in that direction.");
+		show_error(ses, LIST_COMMAND, "#MAP INSERT {%s}: There is no room in that direction.", arg1);
 
 		return;
 	}
 
 	if (room == ses->map->size)
 	{
-		show_error(ses, LIST_COMMAND, "#MAP: Maximum amount of rooms of %d reached.", ses->map->size);
+		show_error(ses, LIST_COMMAND, "#MAP INSERT {%s}: Maximum amount of rooms of %d reached.", arg1, ses->map->size);
 		return;
 	}
 
 	if (dir == NULL)
 	{
-		show_error(ses, LIST_COMMAND, "#MAP: Given direction must be a pathdir.");
+		show_error(ses, LIST_COMMAND, "#MAP INSERT {%s}: Given direction must be a pathdir.", arg1);
 		return;
 	}
 
@@ -6754,7 +6787,7 @@ DO_MAP(map_link)
 
 	if (room == 0)
 	{
-		show_error(ses, LIST_COMMAND, "#MAP: Couldn't find room {%s}.", arg1);
+		show_error(ses, LIST_COMMAND, "#MAP LINK {%s}: Couldn't find room {%s}.", arg1, arg2);
 		return;
 	}
 
@@ -7214,11 +7247,7 @@ DO_MAP(map_move)
 {
 	arg = sub_arg_in_braces(ses, arg, arg1, GET_ALL, SUB_VAR|SUB_FUN);
 
-//	tintin_printf2(ses, "debug: %s vs %s", arg, arg1);
-
 	arg = substitute_speedwalk(ses, arg1, arg2);
-
-//	tintin_printf2(ses, "debug: %s vs %s", arg, arg2);
 
 	ses->map->nofollow++;
 
