@@ -27,6 +27,8 @@
 
 #include <limits.h>
 
+extern char **environ; // by prool
+
 struct listroot *init_list(struct session *ses, int type, int size)
 {
 	struct listroot *listhead;

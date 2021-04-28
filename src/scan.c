@@ -321,7 +321,7 @@ DO_SCAN(scan_dir)
 
 	if (*arg1 == 0)
 	{
-		if (getcwd(cwd, PATH_MAX) == NULL)
+		if (getcwd(cwd, PATH_SIZE) == NULL) // by prool
 		{
 			syserr_printf(ses, "scan_dir: getcwd:");
 
